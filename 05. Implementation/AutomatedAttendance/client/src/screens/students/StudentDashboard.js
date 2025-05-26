@@ -10,26 +10,28 @@ import {
   ScrollView,
   Dimensions,
   FlatList,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import QRCode from 'react-native-qrcode-svg';
 import { API_URL } from '../../config';
 import CustomAlert from '../../components/CustomAlert';
-import { useAuth } from '../../context/AuthContext';
 import { colors, spacing, typography, shadows, borderRadius } from '../../config/theme';
 
 const { width } = Dimensions.get('window');
 
-// Project colors
 const projectColors = {
-  navy: '#1a237e',     // Dark navy blue for primary background
-  orange: '#ff5722',   // Orange accent color for buttons and highlights
-  white: '#FFFFFF',    // White for text on dark backgrounds
-  lightGray: '#f5f6fa', // Light gray for backgrounds
-  darkGray: '#333333', // Dark gray for text
-  mediumGray: '#666666', // Medium gray for secondary text
+  navy: '#1a237e',
+  orange: '#ff5722',
+  white: '#FFFFFF',
+  lightGray: '#f5f6fa',
+  darkGray: '#333333',
+  mediumGray: '#666666',
 };
 
 const StudentDashboard = () => {
@@ -43,14 +45,17 @@ const StudentDashboard = () => {
     present: 0,
     absent: 0,
     total: 0,
-    rate: 0
+    rate: 0,
   });
   const [alertConfig, setAlertConfig] = useState({
     visible: false,
     title: '',
     message: '',
-    type: 'error'
+    type: 'error',
   });
+
+  // New state for QR code generator:
+  const [qrInput, setQrInput] = useState('');
 
   useEffect(() => {
     fetchCourses();
@@ -62,22 +67,20 @@ const StudentDashboard = () => {
       visible: true,
       title,
       message,
-      type
+      type,
     });
   };
 
   const hideAlert = () => {
-    setAlertConfig(prev => ({ ...prev, visible: false }));
+    setAlertConfig((prev) => ({ ...prev, visible: false }));
   };
 
   const fetchCourses = async () => {
     try {
       setIsLoading(true);
-      // For demo purposes, we'll use mock data
-      // In a real app, you would fetch this from your API
       setTimeout(() => {
         setCourses([
-          { id: '1', code: 'CS101', name: 'Introduction to Computer Science', instructor: 'Dr. Smith' },
+          { id: '1', code: 'OOP', name: 'OBJECT ORIENTED PROGRAMMING', instructor: 'Dr. PINACA' },
           { id: '2', code: 'MATH201', name: 'Calculus II', instructor: 'Prof. Johnson' },
           { id: '3', code: 'ENG102', name: 'Academic Writing', instructor: 'Dr. Williams' },
           { id: '4', code: 'PHYS101', name: 'Physics I', instructor: 'Prof. Brown' },
@@ -93,14 +96,12 @@ const StudentDashboard = () => {
 
   const fetchAttendanceStats = async () => {
     try {
-      // For demo purposes, we'll use mock data
-      // In a real app, you would fetch this from your API
       setTimeout(() => {
         setAttendanceStats({
-          present: 42,
-          absent: 8,
-          total: 50,
-          rate: 84
+          present: 0,
+          absent: 0,
+          total: 0,
+          rate: 0,
         });
       }, 1000);
     } catch (error) {
@@ -109,30 +110,28 @@ const StudentDashboard = () => {
   };
 
   const handleLogout = async () => {
-    // Show confirmation dialog
     Alert.alert(
-      "Confirm Logout",
-      "Are you sure you want to log out?",
+      'Confirm Logout',
+      'Are you sure you want to log out?',
       [
         {
-          text: "Cancel",
-          style: "cancel"
+          text: 'Cancel',
+          style: 'cancel',
         },
         {
-          text: "Logout",
-          style: "destructive",
+          text: 'Logout',
+          style: 'destructive',
           onPress: async () => {
             try {
               setIsLoading(true);
-              
+
               const response = await axios.post(`${API_URL}/api/students/logout`, {
-                studentId: studentData.idNumber
+                studentId: studentData.idNumber,
               });
 
               if (response.data.success) {
-                // Clear AsyncStorage
                 await AsyncStorage.multiRemove(['studentId', 'studentName', 'userType']);
-                
+
                 showAlert('Success', 'Logged out successfully', 'success');
                 setTimeout(() => {
                   navigation.replace('Login');
@@ -145,8 +144,8 @@ const StudentDashboard = () => {
             } finally {
               setIsLoading(false);
             }
-          }
-        }
+          },
+        },
       ],
       { cancelable: true }
     );
@@ -186,11 +185,11 @@ const StudentDashboard = () => {
           </View>
         </View>
       </View>
-      
+
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Recent Courses</Text>
       </View>
-      
+
       {isLoading ? (
         <ActivityIndicator size="large" color={projectColors.orange} style={styles.loader} />
       ) : courses.length > 0 ? (
@@ -206,7 +205,7 @@ const StudentDashboard = () => {
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>My Courses</Text>
       </View>
-      
+
       {isLoading ? (
         <ActivityIndicator size="large" color={projectColors.orange} style={styles.loader} />
       ) : courses.length > 0 ? (
@@ -221,20 +220,50 @@ const StudentDashboard = () => {
       )}
     </View>
   );
-  
-  const renderQRScannerTab = () => (
-    <View style={styles.tabContent}>
-      <View style={styles.qrContainer}>
-        <Ionicons name="qr-code-outline" size={100} color={projectColors.orange} />
-        <Text style={styles.qrText}>Tap to scan attendance QR code</Text>
-        <TouchableOpacity 
-          style={styles.scanButton}
-          onPress={() => navigation.navigate('QRScanner', { studentData })}
-        >
-          <Text style={styles.scanButtonText}>Scan QR Code</Text>
-        </TouchableOpacity>
+
+  const renderQrGeneratorTab = () => (
+    <KeyboardAvoidingView
+      style={[styles.tabContent, { flex: 1, justifyContent: 'flex-start' }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Generate QR Code</Text>
       </View>
-    </View>
+      <Text style={styles.infoText}>
+        Enter text below to generate a QR code. You can use your student ID or any data.
+      </Text>
+
+      <TextInput
+        style={styles.qrInput}
+        placeholder="Enter text for QR code"
+        value={qrInput}
+        onChangeText={setQrInput}
+        autoCapitalize="none"
+        autoCorrect={false}
+        editable={!isLoading}
+      />
+
+      {qrInput.trim() !== '' && (
+        <View style={styles.qrCodeContainer}>
+          <QRCode
+            value={qrInput}
+            size={250}
+            backgroundColor={projectColors.white}
+            color={projectColors.navy}
+          />
+        </View>
+      )}
+
+      {qrInput.trim() !== '' && (
+        <TouchableOpacity
+          style={styles.clearButton}
+          onPress={() => setQrInput('')}
+          disabled={isLoading}
+        >
+          <Text style={styles.clearButtonText}>Clear</Text>
+        </TouchableOpacity>
+      )}
+    </KeyboardAvoidingView>
   );
 
   return (
@@ -245,11 +274,7 @@ const StudentDashboard = () => {
           <Text style={styles.welcomeText}>Hi,</Text>
           <Text style={styles.studentName}>{studentData.fullName || 'Student'}</Text>
         </View>
-        <TouchableOpacity 
-          onPress={handleLogout} 
-          style={styles.logoutButton}
-          disabled={isLoading}
-        >
+        <TouchableOpacity onPress={handleLogout} style={styles.logoutButton} disabled={isLoading}>
           {isLoading ? (
             <ActivityIndicator color={projectColors.white} size="small" />
           ) : (
@@ -262,48 +287,55 @@ const StudentDashboard = () => {
       <View style={styles.mainContent}>
         {activeTab === 'dashboard' && renderDashboardTab()}
         {activeTab === 'courses' && renderCoursesTab()}
-        {activeTab === 'scanner' && renderQRScannerTab()}
+        {activeTab === 'generateqr' && renderQrGeneratorTab()}
       </View>
 
       {/* Tab Bar */}
       <View style={styles.tabBar}>
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'dashboard' && styles.activeTab]} 
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'dashboard' && styles.activeTab]}
           onPress={() => setActiveTab('dashboard')}
         >
-          <Ionicons 
-            name={activeTab === 'dashboard' ? 'home' : 'home-outline'} 
-            size={24} 
-            color={activeTab === 'dashboard' ? projectColors.orange : projectColors.white} 
+          <Ionicons
+            name={activeTab === 'dashboard' ? 'home' : 'home-outline'}
+            size={24}
+            color={activeTab === 'dashboard' ? projectColors.orange : projectColors.white}
           />
-          <Text style={[styles.tabLabel, activeTab === 'dashboard' && styles.activeTabLabel]}>Dashboard</Text>
+          <Text style={[styles.tabLabel, activeTab === 'dashboard' && styles.activeTabLabel]}>
+            Dashboard
+          </Text>
         </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'courses' && styles.activeTab]} 
+
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'courses' && styles.activeTab]}
           onPress={() => setActiveTab('courses')}
         >
-          <Ionicons 
-            name={activeTab === 'courses' ? 'book' : 'book-outline'} 
-            size={24} 
-            color={activeTab === 'courses' ? projectColors.orange : projectColors.white} 
+          <Ionicons
+            name={activeTab === 'courses' ? 'book' : 'book-outline'}
+            size={24}
+            color={activeTab === 'courses' ? projectColors.orange : projectColors.white}
           />
-          <Text style={[styles.tabLabel, activeTab === 'courses' && styles.activeTabLabel]}>Courses</Text>
+          <Text style={[styles.tabLabel, activeTab === 'courses' && styles.activeTabLabel]}>
+            Courses
+          </Text>
         </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'scanner' && styles.activeTab]} 
-          onPress={() => setActiveTab('scanner')}
+
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'generateqr' && styles.activeTab]}
+          onPress={() => setActiveTab('generateqr')}
         >
-          <Ionicons 
-            name={activeTab === 'scanner' ? 'qr-code' : 'qr-code-outline'} 
-            size={24} 
-            color={activeTab === 'scanner' ? projectColors.orange : projectColors.white} 
+          <Ionicons
+            name={activeTab === 'generateqr' ? 'qr-code' : 'qr-code-outline'}
+            size={24}
+            color={activeTab === 'generateqr' ? projectColors.orange : projectColors.white}
           />
-          <Text style={[styles.tabLabel, activeTab === 'scanner' && styles.activeTabLabel]}>Scan QR</Text>
+          <Text style={[styles.tabLabel, activeTab === 'generateqr' && styles.activeTabLabel]}>
+            Generate QR
+          </Text>
         </TouchableOpacity>
       </View>
 
+      {/* Custom Alert */}
       <CustomAlert
         visible={alertConfig.visible}
         title={alertConfig.title}
@@ -322,51 +354,89 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: projectColors.navy,
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: spacing.lg,
-    backgroundColor: projectColors.navy,
-    borderBottomWidth: 0,
     ...shadows.medium,
   },
   headerContent: {
-    flex: 1,
+    flexDirection: 'column',
   },
   welcomeText: {
-    ...typography.body1,
-    color: 'rgba(255, 255, 255, 0.7)',
-    marginBottom: spacing.xs,
+    fontSize: typography.sm,
+    fontWeight: '300',
+    color: projectColors.white,
   },
   studentName: {
-    ...typography.h2,
-    color: projectColors.white,
+    fontSize: typography.lg,
+    fontWeight: '700',
+    color: projectColors.orange,
   },
   logoutButton: {
     padding: spacing.sm,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 8,
+    backgroundColor: projectColors.orange,
+    borderRadius: borderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   mainContent: {
     flex: 1,
-    backgroundColor: projectColors.lightGray,
   },
   tabContent: {
     flex: 1,
-    padding: spacing.md,
+    paddingHorizontal: spacing.md,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: projectColors.navy,
+    paddingVertical: spacing.sm,
+    justifyContent: 'space-around',
+    borderTopLeftRadius: borderRadius.lg,
+    borderTopRightRadius: borderRadius.lg,
+    ...shadows.medium,
+  },
+  tab: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  activeTab: {
+    borderBottomWidth: 3,
+    borderBottomColor: projectColors.orange,
+  },
+  tabLabel: {
+    color: projectColors.white,
+    fontSize: typography.sm,
+    marginTop: 2,
+  },
+  activeTabLabel: {
+    color: projectColors.orange,
+    fontWeight: '700',
+  },
+  sectionHeader: {
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  sectionTitle: {
+    fontSize: typography.md,
+    fontWeight: '700',
+    color: projectColors.navy,
   },
   statsContainer: {
-    marginBottom: spacing.lg,
+    marginVertical: spacing.md,
   },
   statsCard: {
     backgroundColor: projectColors.white,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.md,
     padding: spacing.md,
-    ...shadows.medium,
+    ...shadows.small,
   },
   statsTitle: {
-    ...typography.h3,
+    fontSize: typography.md,
+    fontWeight: '700',
+    marginBottom: spacing.sm,
     color: projectColors.navy,
-    marginBottom: spacing.md,
   },
   statsRow: {
     flexDirection: 'row',
@@ -377,29 +447,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   statValue: {
-    ...typography.h2,
+    fontSize: typography.xl,
+    fontWeight: '700',
     color: projectColors.orange,
-    marginBottom: spacing.xs,
   },
   statLabel: {
-    ...typography.body2,
+    fontSize: typography.sm,
     color: projectColors.mediumGray,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-    marginTop: spacing.lg,
-  },
-  sectionTitle: {
-    ...typography.h3,
-    color: projectColors.navy,
   },
   courseItem: {
     backgroundColor: projectColors.white,
-    borderRadius: borderRadius.lg,
     padding: spacing.md,
+    borderRadius: borderRadius.md,
     marginBottom: spacing.md,
     ...shadows.small,
   },
@@ -407,96 +466,77 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.sm,
   },
   courseCode: {
-    ...typography.body2,
-    fontWeight: 'bold',
-    color: projectColors.orange,
-  },
-  courseName: {
-    ...typography.h3,
-    color: projectColors.darkGray,
-    marginBottom: spacing.xs,
-  },
-  instructorName: {
-    ...typography.body2,
-    color: projectColors.mediumGray,
+    fontWeight: '700',
+    fontSize: typography.md,
+    color: projectColors.navy,
   },
   viewButton: {
-    backgroundColor: `${projectColors.orange}15`,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    backgroundColor: projectColors.orange,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
     borderRadius: borderRadius.sm,
   },
   viewButtonText: {
-    ...typography.caption,
-    color: projectColors.orange,
-    fontWeight: '500',
-  },
-  noCourses: {
-    ...typography.body1,
-    color: projectColors.mediumGray,
-    textAlign: 'center',
-    marginTop: spacing.xl,
-  },
-  loader: {
-    marginTop: spacing.xl,
-  },
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: projectColors.navy,
-    borderTopWidth: 0,
-    height: 60,
-    ...shadows.medium,
-  },
-  tab: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-  },
-  activeTab: {
-    borderTopWidth: 2,
-    borderTopColor: projectColors.orange,
-  },
-  tabLabel: {
-    ...typography.caption,
-    marginTop: spacing.xs,
     color: projectColors.white,
-  },
-  activeTabLabel: {
-    color: projectColors.orange,
-    fontWeight: '500',
-  },
-  qrContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-  qrText: {
-    ...typography.body1,
-    textAlign: 'center',
-    marginTop: spacing.lg,
-    marginBottom: spacing.xl,
-    color: projectColors.mediumGray,
-  },
-  scanButton: {
-    backgroundColor: projectColors.orange,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
-    ...shadows.small,
-  },
-  scanButtonText: {
-    color: projectColors.white,
-    ...typography.body1,
     fontWeight: '600',
   },
+  courseName: {
+    marginTop: spacing.sm,
+    fontWeight: '600',
+    fontSize: typography.sm,
+    color: projectColors.darkGray,
+  },
+  instructorName: {
+    fontSize: typography.xs,
+    marginTop: spacing.xs,
+    color: projectColors.mediumGray,
+  },
+  noCourses: {
+    fontSize: typography.sm,
+    fontWeight: '400',
+    color: projectColors.mediumGray,
+    textAlign: 'center',
+    marginTop: spacing.md,
+  },
+  loader: {
+    marginTop: spacing.lg,
+  },
   coursesList: {
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing.md,
+  },
+  infoText: {
+    fontSize: typography.sm,
+    color: projectColors.mediumGray,
+    marginBottom: spacing.md,
+  },
+  qrInput: {
+    borderWidth: 1,
+    borderColor: projectColors.navy,
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontSize: typography.md,
+    color: projectColors.darkGray,
+    marginBottom: spacing.md,
+  },
+  qrCodeContainer: {
+    alignItems: 'center',
+    marginTop: spacing.md,
+  },
+  clearButton: {
+    marginTop: spacing.md,
+    backgroundColor: projectColors.orange,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.sm,
+    alignItems: 'center',
+  },
+  clearButtonText: {
+    color: projectColors.white,
+    fontWeight: '600',
+    fontSize: typography.md,
   },
 });
 
-export default StudentDashboard; 
+export default StudentDashboard;

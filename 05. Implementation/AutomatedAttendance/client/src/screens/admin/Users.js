@@ -4,12 +4,14 @@ import {
   Text,
   StyleSheet,
   Alert,
+  Modal,
+  TextInput,
+  Button,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Table from '../../components/Table';
 import SearchBar from '../../components/SearchBar';
 import CustomAlert from '../../components/CustomAlert';
-import AccountModal from '../../components/Modal';
 import { API_URL } from '../../config/api';
 import { ADMIN_CREDENTIALS } from '../../config/auth';
 
@@ -60,7 +62,6 @@ const Users = ({ onUpdate }) => {
     try {
       setLoading(true);
 
-      // Fetch students
       const studentsRes = await fetch(`${API_URL}/api/students`, {
         method: 'GET',
         headers: {
@@ -69,10 +70,8 @@ const Users = ({ onUpdate }) => {
           'admin-password': ADMIN_CREDENTIALS.ADMIN_PASSWORD
         }
       });
-
       const students = await studentsRes.json();
 
-      // Fetch instructors
       const instructorsRes = await fetch(`${API_URL}/api/instructors`, {
         method: 'GET',
         headers: {
@@ -81,16 +80,13 @@ const Users = ({ onUpdate }) => {
           'admin-password': ADMIN_CREDENTIALS.ADMIN_PASSWORD
         }
       });
-
       const instructors = await instructorsRes.json();
 
-      // Format data
       const formattedStudents = students.map(student => ({
         ...student,
         type: 'Student',
         name: student.fullName
       }));
-
       const formattedInstructors = instructors.map(instructor => ({
         ...instructor,
         type: 'Instructor',
@@ -98,7 +94,6 @@ const Users = ({ onUpdate }) => {
       }));
 
       setAccounts([...formattedStudents, ...formattedInstructors]);
-      
       if (onUpdate) {
         onUpdate();
       }
@@ -180,7 +175,7 @@ const Users = ({ onUpdate }) => {
   const handleSaveAccount = async (editedAccount) => {
     try {
       const endpoint = editedAccount.type.toLowerCase() === 'student' ? 'students' : 'instructors';
-      
+
       const accountToUpdate = {
         idNumber: editedAccount.idNumber,
         fullName: editedAccount.name // Using name since that's what we display
@@ -199,7 +194,7 @@ const Users = ({ onUpdate }) => {
       const responseData = await response.json();
 
       if (response.ok) {
-        fetchAccounts(); // Refresh the accounts list
+        fetchAccounts();
         setIsModalVisible(false);
         setAlert({
           visible: true,
@@ -221,6 +216,70 @@ const Users = ({ onUpdate }) => {
         message: `Failed to update account: ${error.message}`
       });
     }
+  };
+
+  // === AccountModal Component inside Users file for simplicity ===
+  const AccountModal = ({ visible, onClose, account, onSave }) => {
+    const [idNumber, setIdNumber] = useState('');
+    const [name, setName] = useState('');
+
+    useEffect(() => {
+      if (account) {
+        setIdNumber(account.idNumber || '');
+        setName(account.name || '');
+      } else {
+        setIdNumber('');
+        setName('');
+      }
+    }, [account]);
+
+    const handleSave = () => {
+      if (!idNumber.trim() || !name.trim()) {
+        Alert.alert('Validation', 'Please fill in both ID Number and Name');
+        return;
+      }
+      onSave({
+        ...account,
+        idNumber,
+        name
+      });
+    };
+
+    return (
+      <Modal
+        visible={visible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={onClose}
+      >
+        <View style={modalStyles.modalOverlay}>
+          <View style={modalStyles.modalContent}>
+            <Text style={modalStyles.modalTitle}>Edit Account</Text>
+
+            <Text>ID Number:</Text>
+            <TextInput
+              style={modalStyles.input}
+              value={idNumber}
+              onChangeText={setIdNumber}
+              placeholder="Enter ID Number"
+            />
+
+            <Text>Name:</Text>
+            <TextInput
+              style={modalStyles.input}
+              value={name}
+              onChangeText={setName}
+              placeholder="Enter Full Name"
+            />
+
+            <View style={modalStyles.buttonsRow}>
+              <Button title="Cancel" onPress={onClose} color="#888" />
+              <Button title="Save" onPress={handleSave} color="#4CAF50" />
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
   };
 
   return (
@@ -289,4 +348,36 @@ const styles = StyleSheet.create({
   }
 });
 
-export default Users; 
+const modalStyles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    padding: 20,
+    width: '80%',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    textAlign: 'center'
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 5,
+    padding: 10,
+    marginBottom: 15
+  },
+  buttonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between'
+  }
+});
+
+export default Users;

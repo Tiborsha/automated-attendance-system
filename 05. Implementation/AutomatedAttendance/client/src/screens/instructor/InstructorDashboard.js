@@ -6,14 +6,13 @@ import {
   SafeAreaView,
   ScrollView,
   Dimensions,
+  TouchableOpacity,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import InstructorTabBar from '../../components/InstructorTabBar';
 import Header from '../../components/Header';
 import TrendChart from '../../components/TrendChart';
 import InstructorCourses from './InstructorCourses';
-import QRCodeGenerator from './QRCode';
-import { API_URL } from '../../config/api';
 import { Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
@@ -43,10 +42,10 @@ const InstructorDashboard = () => {
 
   const fetchStatistics = async () => {
     try {
-      // TODO: Replace with actual API calls for instructor statistics
+      // Simulated API call
       setStatistics({
-        totalStudents: 150,
-        totalCourses: 5,
+        totalStudents: 2,
+        totalCourses: 2,
         activeClasses: 3,
         attendanceRate: 85,
       });
@@ -57,17 +56,14 @@ const InstructorDashboard = () => {
 
   const fetchTrendData = async () => {
     try {
-      // Get last 7 days
       const last7Days = Array.from({ length: 7 }, (_, i) => {
         const date = new Date();
         date.setDate(date.getDate() - i);
         return date;
       }).reverse();
 
-      // TODO: Replace with actual attendance data
       const mockAttendanceData = [75, 82, 88, 85, 90, 87, 85];
 
-      // Format dates for labels
       const labels = last7Days.map(date => {
         const month = (date.getMonth() + 1).toString().padStart(2, '0');
         const day = date.getDate().toString().padStart(2, '0');
@@ -143,6 +139,12 @@ const InstructorDashboard = () => {
     }
   };
 
+  const handleOpenQRScanner = () => {
+    navigation.navigate('QRScanner', {
+      // Optional: Pass props like courseCode or courseId here
+    });
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <Header
@@ -150,15 +152,15 @@ const InstructorDashboard = () => {
         showLogout
         onLogout={handleLogout}
       />
-      
-      <View style={styles.content}>
-        {renderContent()}
-      </View>
 
-      <InstructorTabBar
-        activeTab={activeTab}
-        onTabPress={handleTabPress}
-      />
+      <View style={styles.content}>{renderContent()}</View>
+
+      {/* QR Scanner Floating Button */}
+      <TouchableOpacity style={styles.qrButton} onPress={handleOpenQRScanner}>
+        <Ionicons name="qr-code-outline" size={28} color="#fff" />
+      </TouchableOpacity>
+
+      <InstructorTabBar activeTab={activeTab} onTabPress={handleTabPress} />
     </SafeAreaView>
   );
 };
@@ -175,15 +177,8 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
   },
-  tabContent: {
-    flex: 1,
-    padding: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   chartSection: {
     alignItems: 'flex-end',
-    paddingRight: 0,
     marginBottom: 20,
     marginRight: -2,
   },
@@ -202,10 +197,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     minHeight: 120,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
@@ -222,6 +214,20 @@ const styles = StyleSheet.create({
     color: '#fff',
     opacity: 0.9,
   },
+  qrButton: {
+    position: 'absolute',
+    bottom: 70,
+    right: 20,
+    backgroundColor: '#165973',
+    padding: 16,
+    borderRadius: 50,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    zIndex: 10,
+  },
 });
 
-export default InstructorDashboard; 
+export default InstructorDashboard;

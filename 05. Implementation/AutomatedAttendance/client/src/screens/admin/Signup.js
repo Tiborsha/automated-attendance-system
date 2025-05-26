@@ -154,7 +154,7 @@ const Signup = ({ route }) => {
           {/* Header */}
           <View style={styles.header}>
             <Image
-              source={require('../../assets/images/logo.png')}
+              source={require('../../assets/images/logo1.png')}
               style={styles.logo}
               resizeMode="contain"
             />

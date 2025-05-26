@@ -30,9 +30,9 @@ const Welcome = () => {
         <View style={styles.descriptionContainer}>
           <Text style={styles.description}>
           Welcome!  {'\n'}
-            This app lets you check attendance quickly  {'\n'}
-            and easily by scanning a QR code {'\n'}
-            fast, accurate, and hassle-free.
+            This app makes checking attendance quick  {'\n'}
+            and easy with a simple QR code scan  {'\n'}
+            fast, reliable, and effortless.
           </Text>
         </View>
 

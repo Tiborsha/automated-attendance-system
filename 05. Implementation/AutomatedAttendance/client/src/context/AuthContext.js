@@ -6,7 +6,7 @@ export const AuthProvider = ({ children }) => {
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
   const [authState, setAuthState] = useState({
     isLoggedIn: false,
-    userType: null, // 'admin', 'student', or 'instructor'
+    userType: null,
     userData: null,
   });
 
@@ -16,8 +16,7 @@ export const AuthProvider = ({ children }) => {
       userType,
       userData,
     });
-    
-    // For backward compatibility
+
     if (userType === 'admin') {
       setIsAdminLoggedIn(true);
     }
@@ -29,29 +28,22 @@ export const AuthProvider = ({ children }) => {
       userType: null,
       userData: null,
     });
-    
-    // For backward compatibility
     setIsAdminLoggedIn(false);
   };
 
   // For backward compatibility
-  const loginAdmin = () => {
-    login('admin', { id: 'admin' });
-  };
-
-  const logoutAdmin = () => {
-    logout();
-  };
+  const loginAdmin = () => login('admin', { id: 'admin' });
+  const logoutAdmin = () => logout();
 
   return (
-    <AuthContext.Provider 
-      value={{ 
-        ...authState, 
-        isAdminLoggedIn, 
-        login, 
+    <AuthContext.Provider
+      value={{
+        ...authState,
+        isAdminLoggedIn,
+        login,
         logout,
         loginAdmin,
-        logoutAdmin
+        logoutAdmin,
       }}
     >
       {children}
@@ -65,4 +57,4 @@ export const useAuth = () => {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-}; 
+};
